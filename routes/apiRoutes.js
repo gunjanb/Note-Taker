@@ -1,49 +1,75 @@
-// LOAD DATA
-// We are linking our routes to a series of "data" sources.
-// These data sources hold arrays of information on table-data, waitinglist, etc.
-
-const notedatas = require("../db/db.json");
+// read notes from DB for which we need db file
+const notesfromdb = require("../db/db.json");
+//we need to include uuid package to create a unique id for notes
+const { v4: uuidv4 } = require("uuid");
+// We need to include the path package to get the correct file path for our DB file
+const path = require("path");
+//we need to include fs module to interact with file system
+const fs = require("fs");
 
 // ROUTING
-
 module.exports = (app) => {
   // API GET Requests
-  // Below code handles when users "visit" a page called notes.
-  // In each of the below cases when a user visits a link
-  // (ex: localhost:PORT/api/admin... they are shown a JSON of the data in the table)
-  // ---------------------------------------------------------------------------
+  // Below code handles when users "visit" a page called notes then
+  // all notes from db is retrived and shown on leftside column
 
-  app.get("/api/notes", (req, res) => res.json(notedatas));
+  app.get("/api/notes", (req, res) => res.json(notesfromdb));
 
   // API POST Requests
-  // Below code handles when a user submits a form and thus submits data to the server.
-  // In each of the below cases, when a user submits form data (a JSON object)
-  // ...the JSON is pushed to the appropriate JavaScript array
-  // (ex. User fills out a reservation request... this data is then sent to the server...
-  // Then the server saves the data to the tableData array)
-  // ---------------------------------------------------------------------------
+  // Below code handles when a user saves a note and thus submits data to the server.
+  // (ex. User writes a note and click on save notes button then this data is sent to the server and
+  // then the server saves the data to the db.json file)
 
-  // app.post("/api/tables", (req, res) => {
-  //   // Note the code here. Our "server" will respond to requests and let users know if they have a table or not.
-  //   // It will do this by sending out the value "true" have a table
-  //   // req.body is available since we're using the body parsing middleware
-  //   if (tableData.length < 5) {
-  //     tableData.push(req.body);
-  //     res.json(true);
-  //   } else {
-  //     waitListData.push(req.body);
-  //     res.json(false);
-  //   }
-  // });
+  app.post("/api/notes", (req, res) => {
+    // req.body is available since we're using the body parsing middleware
+    let saveNote = req.body;
+    //console.log("data from user ", req.body);
 
-  // // I added this below code so you could clear out the table while working with the functionality.
-  // // Don"t worry about it!
+    // add id to the note before storing it in db.json file
+    let newNote = {
+      id: uuidv4(),
+      title: saveNote.title,
+      text: saveNote.text,
+    };
 
-  // app.post("/api/clear", (req, res) => {
-  //   // Empty out the arrays of data
-  //   tableData.length = 0;
-  //   waitListData.length = 0;
+    notesfromdb.push(newNote);
 
-  //   res.json({ ok: true });
-  // });
+    // write all notes to .json file means adding to a database
+    fs.writeFileSync(
+      path.join(__dirname, "../db/db.json"),
+      JSON.stringify(notesfromdb, null, 2)
+    );
+
+    res.json(true);
+  });
+
+  //API DELETE Request
+
+  app.delete("/api/notes/:id", (req, res) => {
+    //extract note id to be deleted
+    const deleteNoteWithId = req.params.id;
+
+    //console.log("All notes from DB:", notesfromdb);
+
+    //will return index if note is available  in
+    //if not present then return -1
+    const deleteNoteAtIndex = notesfromdb.findIndex(
+      (note) => note.id === deleteNoteWithId
+    );
+
+    if (deleteNoteAtIndex > -1) {
+      //delete at index and remove only one item
+      notesfromdb.splice(deleteNoteAtIndex, 1);
+
+      //write the updated notes to db
+      fs.writeFileSync(
+        path.join(__dirname, "../db/db.json"),
+        JSON.stringify(notesfromdb, null, 2)
+      );
+      res.json(true);
+    } else {
+      console.error(`Tried to delete a Note which doesn't exist!`);
+      res.json(false);
+    }
+  });
 };
